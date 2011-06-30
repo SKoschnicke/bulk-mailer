@@ -36,21 +36,27 @@ body = mail.join
 
 recipients = File.open('recipients.txt') {|f| f.readlines.map{|e| e.strip}}
 
+log "got #{recipients.size} recipients from recipients.txt"
 # validate mail adresses
+valid_recipients = Array.new
 recipients.each_with_index do |email, index|
+  invalid = false
   if email.strip.empty?
-    error "got empty email in line #{index+1}"
-    exit
+    #error "got empty email in line #{index+1}"
+    invalid = true
   end
   if not ValidateEmail.validate(email)
-    error "invalid email address in line #{index+1}: #{email}"
-    exit
+    #error "invalid email address in line #{index+1}: #{email}"
+    invalid = true
   end
+  valid_recipients << email unless invalid
 end
+log "#{valid_recipients.size} after removing invalid ones"
 
 Pony.options = {
   :from => "#{config['from_name']} <#{config['from_email']}>",
   :via => :smtp,
+  :charset => 'UTF-8',
   :via_options => {
     :address        => config['server'],
     :port           => config['port'],
@@ -62,11 +68,23 @@ Pony.options = {
   }
 }
 
-max_recipients_per_mail = 1
+max_recipients_per_mail = 20
 
-recs = recipients.shift(max_recipients_per_mail)
-while not recs.empty? do
-  log "sending mail to #{recs.inspect}..."
-  Pony.mail(:to => '', :bcc => recs, :subject => subject, :body => body)
-  recs = recipients.shift(max_recipients_per_mail)
+recs = valid_recipients.shift(max_recipients_per_mail)
+
+begin
+  while not recs.empty? do
+    log "sending mail to #{recs.inspect}..."
+    begin
+      Pony.mail(:to => '', :bcc => recs, :subject => subject, :body => body)
+    rescue Timeout::Error => e
+      log "got timeout"
+      File.open('timeout_addresses.txt', 'a'){|f| f.write recs.join("\n")+"\n"}
+    end
+    recs = valid_recipients.shift(max_recipients_per_mail)
+  end
+rescue => e
+  error "got error #{e.message}"
+  File.open("addresses-left-#{Time.now.to_i}.txt", 'w'){|f| f.write valid_recipients.join("\n")}
 end
+
