@@ -1,0 +1,5 @@
+server: smtp.example.com
+username: me@example.com
+password: secret
+from_name: John Doe
+from_email: john@example.com

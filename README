@@ -1,0 +1,4 @@
+A simple mail script to send a text to a list of recipients.
+
+- Text of the mail is in mail.txt, first line is the subject, second line should be empty, starting from third line is the body
+- mail addresses of recipiens are in recipients.txt, one address per line
