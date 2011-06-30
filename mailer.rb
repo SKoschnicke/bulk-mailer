@@ -42,11 +42,11 @@ valid_recipients = Array.new
 recipients.each_with_index do |email, index|
   invalid = false
   if email.strip.empty?
-    #error "got empty email in line #{index+1}"
+    log "got empty email in line #{index+1}"
     invalid = true
   end
   if not ValidateEmail.validate(email)
-    #error "invalid email address in line #{index+1}: #{email}"
+    log "invalid email address in line #{index+1}: #{email}"
     invalid = true
   end
   valid_recipients << email unless invalid
@@ -60,10 +60,10 @@ Pony.options = {
   :via_options => {
     :address        => config['server'],
     :port           => config['port'],
-  # :user_name      => config['username'],
-  # :password       => config['password'],
+    :user_name      => config['username'],
+    :password       => config['password'],
     :enable_starttls_auto => false,
-  #  :authentication => :plain, # :plain, :login, :cram_md5, no auth by default
+    :authentication => :plain, # :plain, :login, :cram_md5, no auth by default
     :domain         => "localhost.localdomain" # the HELO domain provided by the client to the server
   }
 }
@@ -78,13 +78,14 @@ begin
     begin
       Pony.mail(:to => '', :bcc => recs, :subject => subject, :body => body)
     rescue Timeout::Error => e
-      log "got timeout"
+      log "got timeout, current adresses are appended to timeout_addresses.txt"
       File.open('timeout_addresses.txt', 'a'){|f| f.write recs.join("\n")+"\n"}
     end
     recs = valid_recipients.shift(max_recipients_per_mail)
   end
 rescue => e
-  error "got error #{e.message}"
-  File.open("addresses-left-#{Time.now.to_i}.txt", 'w'){|f| f.write valid_recipients.join("\n")}
+  savefilename = "addresses-left-#{Time.now.to_i}.txt"
+  error "got error #{e.message}, saving remaining addresses into #{savefilename}"
+  File.open(savefilename, 'w'){|f| f.write(recs.join("\n") + valid_recipients.join("\n") + "\n")}
 end
 
